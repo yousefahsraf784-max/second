@@ -60,7 +60,7 @@
      feedback.querySelector("[data-copy-code]").addEventListener("click",async b=>{try{await navigator.clipboard.writeText(data.tracking_code);b.currentTarget.textContent="تم نسخ الكود";}catch(_){b.currentTarget.textContent=data.tracking_code;}});
      cart=[];renderCart();e.currentTarget.reset();
    });
-   const statusLabels={new:"تم استلام الطلب",preparing:"قيد التحضير",completed:"جاهز",out_for_delivery:"خرج للتوصيل",delivered:"تم التسليم"};
+   const statusLabels=currentLang==="en"?{new:"Order received",preparing:"Preparing",completed:"Ready",out_for_delivery:"Out for delivery",delivered:"Delivered"}:{new:"تم استلام الطلب",preparing:"قيد التحضير",completed:"جاهز",out_for_delivery:"خرج للتوصيل",delivered:"تم التسليم"};
    $("#track-form").addEventListener("submit",async e=>{
      e.preventDefault();const code=$("#tracking-code").value.trim().toUpperCase();const box=$("#tracking-result");
      if(!code){box.textContent="اكتب كود المتابعة الأول.";return;}
