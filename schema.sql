@@ -1,6 +1,6 @@
 -- CafeOrders schema: products, orders, public product images.
--- Run as a Supabase migration. Public visitors can only read available products
--- and submit new orders. Authenticated users manage products and orders.
+-- Public visitors can read available products and submit new orders.
+-- Authenticated users manage products and orders. Disable public signups in Auth settings.
 create table if not exists public.products (
  id uuid primary key default gen_random_uuid(),
  name text not null,
@@ -30,8 +30,6 @@ drop policy if exists "authenticated read products" on public.products;
 drop policy if exists "admin manage products" on public.products;
 create policy "public read available products" on public.products
  for select to anon using (is_available = true);
-create policy "authenticated read products" on public.products
- for select to authenticated using (true);
 create policy "admin manage products" on public.products
  for all to authenticated using (true) with check (true);
 
