@@ -2,14 +2,13 @@
 
 واجهة العميل: `index.html` — لوحة الإدارة: `admin.html`.
 
-## إعداد الربط المباشر بين الموقعين
-1. أنشئ مشروعاً في Supabase.
-2. افتح SQL Editor وشغّل محتوى `schema.sql` (يتضمن إعداد رفع صور المنتجات).
-3. من Project Settings > API انسخ Project URL و anon/public key وضعهما في `config.js`.
-4. أنشئ حساب الإدارة من Authentication > Users (Add user). سجّل الدخول من `admin.html`.
-5. فعّل Realtime لجدولي `products` و`orders` من Database > Replication.
-6. انشر المستودع على GitHub Pages.
+## إعداد الموقع
+1. مشروع Supabase باسم `CafeOrders` تم إنشاؤه وربطه بالفعل بملف `config.js`.
+2. الجداول وسياسات الوصول ومخزن صور المنتجات تم إعدادهم بالفعل من `schema.sql`.
+3. من Supabase > Authentication > Settings، عطّل تسجيل المستخدمين الجدد (Allow new users to sign up)، حتى لا يتمكن الزوار من إنشاء حسابات إدارة.
+4. من Authentication > Users اختر Add user وأنشئ حساب الإدارة بالبريد وكلمة المرور اللذين ستستخدمهما في صفحة `admin.html`.
+5. افتح المتجر ولوحة الإدارة بعد نشر GitHub Pages.
 
-**أمان:** استخدم anon/public key فقط في config.js. لا تضع service_role key في ملفات الموقع. سياسات RLS مفعّلة؛ إدارة المنتجات والطلبات تتطلب تسجيل الدخول.
+**أمان:** ملف `config.js` يحتوي على publishable/public key فقط، وهو مخصص للواجهة. لا تضع service_role أو secret key في ملفات الموقع. سياسات RLS مفعّلة؛ الزوار يقرؤون المنتجات المتاحة ويرسلون طلبات جديدة، والحسابات المسجلة تدير المنتجات والطلبات.
 
 الأسعار بالجنيه المصري. من لوحة الإدارة اختار صورة المنتج مباشرة من جهازك (حتى 5 ميجا)، وسيتم رفعها تلقائياً وتظهر في متجر العملاء. زر English / العربية يبدّل لغة الموقعين.
