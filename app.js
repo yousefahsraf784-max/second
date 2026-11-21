@@ -113,12 +113,13 @@
    $("#product-form").addEventListener("submit",async e=>{
      e.preventDefault();const f=new FormData(e.currentTarget);const file=f.get("image_file");
      const nameAr=f.get("name_ar").trim(), nameEn=f.get("name_en").trim();
-     const priceAr=Number(f.get("price_ar")), priceEn=Number(f.get("price_en"));
-     if(!nameAr||!nameEn||!Number.isFinite(priceAr)||priceAr<=0||!Number.isFinite(priceEn)||priceEn<=0){const feedback=$("#product-feedback");feedback.textContent=currentLang==="en"?"Enter both product names and both valid prices.":"اكتب اسم المنتج والسعر باللغتين، وتأكد إن السعرين أكبر من صفر.";return;}
+     const price=Number(f.get("price"));
+     if(!nameAr||!nameEn||!Number.isFinite(price)||price<=0){const feedback=$("#product-feedback");feedback.textContent=currentLang==="en"?"Enter both product names and one valid price.":"اكتب اسم المنتج باللغتين وسعرًا صحيحًا أكبر من صفر.";return;}
      const categoryAr=f.get("category_ar").trim(), categoryEn=f.get("category_en").trim();
      if(!categoryAr||!categoryEn){const feedback=$("#product-feedback");feedback.textContent=currentLang==="en"?"Enter the category in both Arabic and English.":"اكتب التصنيف بالعربي والإنجليزي.";return;}
-     const payload={name:nameAr,name_ar:nameAr,name_en:nameEn,price:priceAr,price_ar:priceAr,price_en:priceEn,category:categoryAr,category_ar:categoryAr,category_en:categoryEn,image_url:null,description:f.get("description").trim()||null};
+     const payload={name:nameAr,name_ar:nameAr,name_en:nameEn,price,price_ar:price,price_en:price,category:categoryAr,category_ar:categoryAr,category_en:categoryEn,image_url:null,description:f.get("description").trim()||null};
      const feedback=$("#product-feedback");feedback.textContent=currentLang==="en"?"Adding product...":"جاري إضافة المنتج...";
+     let saveStage="upload";
      try{
        if(file&&file.size){
          if(!file.type.startsWith("image/"))throw new Error("اختار ملف صورة صحيح.");
@@ -129,10 +130,16 @@
          if(uploadError)throw uploadError;
          payload.image_url=db.storage.from("product-images").getPublicUrl(path).data.publicUrl;
        }
+       saveStage="database";
        const {data:createdProduct,error}=await db.from("products").insert(payload).select("id").single();if(error)throw error;if(!createdProduct?.id)throw new Error("لم يتم تأكيد حفظ المنتج في قاعدة البيانات.");
        feedback.textContent=currentLang==="en"?"Product added and will appear in the store.":"اتضاف المنتج بنجاح وهيظهر في المتجر.";
        e.currentTarget.reset();loadAdminProducts();
-     }catch(err){feedback.textContent=(err.message==="اختار ملف صورة صحيح."||err.message==="حجم الصورة لازم يكون أقل من 5 ميجا.")?err.message:(currentLang==="en"?"Could not add product: ":"تعذرت إضافة المنتج: ")+(err.message||err.details||err.hint||"خطأ غير معروف");}
+     }catch(err){
+       const detail=err.message||err.details||err.hint||"خطأ غير معروف";
+       if(err.message==="اختار ملف صورة صحيح."||err.message==="حجم الصورة لازم يكون أقل من 5 ميجا.")feedback.textContent=err.message;
+       else if(saveStage==="upload")feedback.textContent=(currentLang==="en"?"Image upload failed: ":"فشل رفع الصورة: ")+detail;
+       else feedback.textContent=(currentLang==="en"?"Product data could not be saved: ":"فشل حفظ بيانات المنتج: ")+detail;
+     }
    });
    async function loadOrders() {
      const box=$("#orders-list");box.textContent="جاري تحميل الطلبات...";
