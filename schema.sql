@@ -24,6 +24,8 @@ alter table public.products add column if not exists price_en numeric(10,2);
 alter table public.products add column if not exists category_ar text;
 alter table public.products add column if not exists category_en text;
 update public.products set name_ar = coalesce(name_ar, name), name_en = coalesce(name_en, name), price_ar = coalesce(price_ar, price), price_en = coalesce(price_en, price), category_ar=coalesce(category_ar,category), category_en=coalesce(category_en,category) where name_ar is null or name_en is null or price_ar is null or price_en is null or category_ar is null or category_en is null;
+alter table public.products alter column name_ar set not null;
+alter table public.products alter column name_en set not null;
 alter table public.products alter column price_ar set not null;
 alter table public.products alter column price_en set not null;
 alter table public.products alter column category_ar set not null;
