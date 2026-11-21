@@ -1,6 +1,6 @@
 -- CafeOrders schema: products, orders, public product images.
 -- Public visitors can read available products and submit new orders.
--- Authenticated users manage products and orders. Disable public signups in Auth settings.
+-- Management policies are restricted to the single owner account created in Supabase Auth.
 create table if not exists public.products (
  id uuid primary key default gen_random_uuid(),
  name text not null,
@@ -28,10 +28,25 @@ alter table public.orders enable row level security;
 drop policy if exists "public read available products" on public.products;
 drop policy if exists "authenticated read products" on public.products;
 drop policy if exists "admin manage products" on public.products;
+drop policy if exists "admin read products" on public.products;
+drop policy if exists "admin create products" on public.products;
+drop policy if exists "admin update products" on public.products;
+drop policy if exists "admin delete products" on public.products;
 create policy "public read available products" on public.products
  for select to anon using (is_available = true);
-create policy "admin manage products" on public.products
- for all to authenticated using (true) with check (true);
+create policy "admin read products" on public.products
+ for select to authenticated
+ using ((select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid);
+create policy "admin create products" on public.products
+ for insert to authenticated
+ with check ((select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid);
+create policy "admin update products" on public.products
+ for update to authenticated
+ using ((select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid)
+ with check ((select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid);
+create policy "admin delete products" on public.products
+ for delete to authenticated
+ using ((select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid);
 
 drop policy if exists "public create orders" on public.orders;
 drop policy if exists "admin read orders" on public.orders;
@@ -39,9 +54,12 @@ drop policy if exists "admin update orders" on public.orders;
 create policy "public create orders" on public.orders
  for insert to anon, authenticated with check (status = 'new');
 create policy "admin read orders" on public.orders
- for select to authenticated using (true);
+ for select to authenticated
+ using ((select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid);
 create policy "admin update orders" on public.orders
- for update to authenticated using (true) with check (true);
+ for update to authenticated
+ using ((select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid)
+ with check ((select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid);
 
 grant usage on schema public to anon, authenticated;
 grant select on public.products to anon, authenticated;
@@ -60,9 +78,15 @@ drop policy if exists "admin delete product images" on storage.objects;
 create policy "public view product images" on storage.objects
  for select to anon, authenticated using (bucket_id='product-images');
 create policy "admin upload product images" on storage.objects
- for insert to authenticated with check (bucket_id='product-images');
+ for insert to authenticated with check (
+   bucket_id='product-images'
+   and (select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid
+ );
 create policy "admin delete product images" on storage.objects
- for delete to authenticated using (bucket_id='product-images');
+ for delete to authenticated using (
+   bucket_id='product-images'
+   and (select auth.uid()) = '0e455c56-eceb-4449-a0a2-d076c8e6d0f8'::uuid
+ );
 
 do $$
 begin
