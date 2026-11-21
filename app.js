@@ -29,7 +29,7 @@
    let products = [], cart = [], activeCategory = null;
    const productName = p => currentLang==="en" ? (p.name_en || p.name || p.name_ar || "") : (p.name_ar || p.name || p.name_en || "");
    const productCategory = p => currentLang==="en" ? (p.category_en || p.category || p.category_ar || "") : (p.category_ar || p.category || p.category_en || "");
-   document.addEventListener("cafe-language-changed",()=>{renderProducts();renderCart();});
+   document.addEventListener("cafe-language-changed",()=>{renderCategories();renderProducts();renderCart();});
    const productBox = $("#products");
    function renderCategories() {
      const cats = [null, ...new Set(products.map(p => p.category_ar || p.category).filter(Boolean))];
