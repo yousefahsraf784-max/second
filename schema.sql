@@ -4,6 +4,8 @@
 create table if not exists public.products (
  id uuid primary key default gen_random_uuid(),
  name text not null,
+ name_ar text,
+ name_en text,
  price numeric(10,2) not null check (price > 0),
  category text not null,
  image_url text,
@@ -11,6 +13,9 @@ create table if not exists public.products (
  is_available boolean not null default true,
  created_at timestamptz not null default now()
 );
+alter table public.products add column if not exists name_ar text;
+alter table public.products add column if not exists name_en text;
+update public.products set name_ar = coalesce(name_ar, name), name_en = coalesce(name_en, name) where name_ar is null or name_en is null;
 create table if not exists public.orders (
  id uuid primary key default gen_random_uuid(),
  customer_name text not null,
