@@ -3,6 +3,13 @@
  const ready = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase);
  const page = document.body.dataset.page;
  const $ = (s) => document.querySelector(s);
+ let currentLang=localStorage.getItem("cafe-language")||"ar";
+ const words={"كافيه":"Cafe","قهوة ومذاق يروق يومك":"Coffee & a little joy","السلة":"Cart","أهلاً بيك في مكانك":"Welcome to your place","خد لحظة راحة،":"Take a little break,","واختار مزاجك.":"choose your mood.","قهوة بتحبها وحاجة حلوة تكمل يومك.":"Coffee you love and a sweet treat for your day.","شوف المنيو":"Explore menu","اختياراتنا":"Our picks","المنيو":"Menu","اختار اللي على مزاجك":"Choose what you like","طلبك":"Your order","سلة المشتريات":"Shopping cart","الإجمالي":"Total","بيانات التوصيل":"Delivery details","الاسم":"Name","رقم الموبايل":"Phone number","العنوان بالتفصيل":"Full address","ملاحظات (اختياري)":"Notes (optional)","تأكيد الطلب":"Place order","دخول الإدارة":"Admin","كافيه — معمول بحب":"Cafe — made with love","عرض المتجر ↗":"View store ↗","لوحة الإدارة":"Admin dashboard","مساحة الإدارة":"Admin area","أهلاً بعودتك":"Welcome back","سجّل دخولك لإدارة المنتجات والطلبات.":"Sign in to manage products and orders.","البريد الإلكتروني":"Email","كلمة المرور":"Password","تسجيل الدخول":"Sign in","نظرة عامة":"Overview","إدارة الكافيه":"Cafe management","تسجيل الخروج":"Log out","الطلبات":"Orders","المنتجات":"Products","الطلبات الواردة":"Incoming orders","تحديث":"Refresh","إضافة منتج جديد":"Add a new product","اسم المنتج":"Product name","السعر بالجنيه":"Price (EGP)","التصنيف":"Category","صورة المنتج من جهازك":"Product image from your device","اختار صورة من الموبايل أو الكمبيوتر":"Choose an image from your phone or computer","وصف بسيط":"Short description","إضافة المنتج":"Add product","المنتجات الحالية":"Current products","العودة للمتجر":"Back to store","السلة لسه فاضية. اختار حاجة من المنيو ☕":"Your cart is empty. Choose something from the menu ☕","الكل":"All","طلب جديد":"New order","قيد التحضير":"Preparing","جاهز":"Ready","تم التسليم":"Delivered","حالة الطلب":"Order status","مفيش منتجات مضافة لسه.":"No products added yet.","لسه مفيش طلبات.":"No orders yet.","المنيو بيتجهز حالياً، تابعنا قريباً ☕":"The menu is being prepared. Check back soon ☕","بنحمّل المنيو...":"Loading menu...","جاري تحميل الطلبات...":"Loading orders...","جاري تحميل المنتجات...":"Loading products...","متاح":"Available","مخفي":"Hidden","حذف":"Delete","ملاحظات:":"Notes:","ضيف منتجات للسلة الأول.":"Add products to your cart first.","جاري إرسال الطلب...":"Sending your order...","تم استلام طلبك بنجاح! رقم الطلب: ":"Your order was received! Order number: ","ما قدرناش نبعت الطلب. حاول تاني بعد التأكد من الاتصال.":"Could not send the order. Please try again.","جاري تسجيل الدخول...":"Signing in...","بيانات الدخول غير صحيحة أو الحساب غير مفعّل.":"Incorrect login details or account not activated.","جاري إضافة المنتج...":"Adding product...","اتضاف المنتج بنجاح وهيظهر في المتجر.":"Product added! It will appear in the store.","تعذرت الإضافة. راجع الاتصال والحقول.":"Could not add product. Check your connection and fields.","تعذر تحميل الطلبات. تأكد من صلاحيات الإدارة.":"Could not load orders. Check admin permissions.","تعذر تحميل المنتجات.":"Could not load products.","تعذر تحميل المنيو. تأكد من إعداد قاعدة البيانات.":"Could not load menu. Check database setup."};
+ const reverseWords=Object.fromEntries(Object.entries(words).map(([ar,en])=>[en,ar]));
+ function applyLanguage(){const en=currentLang==="en";document.documentElement.lang=en?"en":"ar";document.documentElement.dir=en?"ltr":"rtl";document.querySelectorAll("[data-language-toggle]").forEach(x=>x.textContent=en?"العربية":"English");const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){const t=n.nodeValue.trim();if(!t)continue;const v=en?words[t]:reverseWords[t];if(v)n.nodeValue=n.nodeValue.replace(t,v);}document.querySelectorAll("input,textarea").forEach(x=>{if(x.placeholder){const v=en?words[x.placeholder]:reverseWords[x.placeholder];if(v)x.placeholder=v;}});}
+ document.querySelectorAll("[data-language-toggle]").forEach(x=>x.addEventListener("click",()=>{currentLang=currentLang==="ar"?"en":"ar";localStorage.setItem("cafe-language",currentLang);applyLanguage();}));
+ applyLanguage();
+
  const money = (n) => Number(n || 0).toLocaleString("ar-EG") + " ج.م";
  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  document.querySelectorAll(".cafe-name").forEach(el => el.textContent = cfg.CAFE_NAME || "كافيه");
@@ -41,7 +48,7 @@
    async function loadProducts() {
      const {data,error}=await db.from("products").select("*").eq("is_available",true).order("created_at",{ascending:false});
      if(error){productBox.innerHTML='<div class="empty-state">تعذر تحميل المنيو. تأكد من إعداد قاعدة البيانات.</div>';return;}
-     products=data||[]; renderCategories(); renderProducts();
+     products=data||[]; renderCategories(); renderProducts(); applyLanguage();
    }
    $("#order-form").addEventListener("submit", async e=>{
      e.preventDefault(); const feedback=$("#order-feedback");
@@ -77,10 +84,23 @@
    }));
    $("#refresh-orders").addEventListener("click",loadOrders);
    $("#product-form").addEventListener("submit",async e=>{
-     e.preventDefault();const f=new FormData(e.currentTarget);const payload={name:f.get("name").trim(),price:Number(f.get("price")),category:f.get("category").trim(),image_url:f.get("image_url").trim()||null,description:f.get("description").trim()||null};
-     const feedback=$("#product-feedback");feedback.textContent="جاري إضافة المنتج...";
-     const {error}=await db.from("products").insert(payload);
-     feedback.textContent=error?"تعذرت الإضافة. راجع الاتصال والحقول.":"اتضاف المنتج بنجاح وهيظهر في المتجر.";if(!error){e.currentTarget.reset();loadAdminProducts();}
+     e.preventDefault();const f=new FormData(e.currentTarget);const file=f.get("image_file");
+     const payload={name:f.get("name").trim(),price:Number(f.get("price")),category:f.get("category").trim(),image_url:null,description:f.get("description").trim()||null};
+     const feedback=$("#product-feedback");feedback.textContent=currentLang==="en"?"Adding product...":"جاري إضافة المنتج...";
+     try{
+       if(file&&file.size){
+         if(!file.type.startsWith("image/"))throw new Error("اختار ملف صورة صحيح.");
+         if(file.size>5*1024*1024)throw new Error("حجم الصورة لازم يكون أقل من 5 ميجا.");
+         const ext=(file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"")||"jpg";
+         const path=crypto.randomUUID()+"."+ext;
+         const {error:uploadError}=await db.storage.from("product-images").upload(path,file,{cacheControl:"3600",upsert:false,contentType:file.type});
+         if(uploadError)throw uploadError;
+         payload.image_url=db.storage.from("product-images").getPublicUrl(path).data.publicUrl;
+       }
+       const {error}=await db.from("products").insert(payload);if(error)throw error;
+       feedback.textContent=currentLang==="en"?"Product added and will appear in the store.":"اتضاف المنتج بنجاح وهيظهر في المتجر.";
+       e.currentTarget.reset();loadAdminProducts();
+     }catch(err){feedback.textContent=(err.message==="اختار ملف صورة صحيح."||err.message==="حجم الصورة لازم يكون أقل من 5 ميجا.")?err.message:(currentLang==="en"?"Could not add product. Check image storage setup and permissions.":"تعذرت الإضافة. تأكد من إعداد رفع الصور والصلاحيات.");}
    });
    async function loadOrders() {
      const box=$("#orders-list");box.textContent="جاري تحميل الطلبات...";
