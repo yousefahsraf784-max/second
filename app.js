@@ -124,10 +124,10 @@
    });
    async function loadOrders() {
      const box=$("#orders-list");box.textContent="جاري تحميل الطلبات...";
-     const {data,error}=await db.from("orders").select("*").order("created_at",{ascending:false});
+     const {data,error}=await db.from("orders").select("*").neq("status","delivered").order("created_at",{ascending:false});
      if(error){box.textContent="تعذر تحميل الطلبات. تأكد من صلاحيات الإدارة.";return;}
      box.innerHTML=data.length?data.map(o=>'<article class="order-card"><div class="order-top"><b>طلب #'+esc(o.tracking_code||o.id.slice(0,8).toUpperCase())+'</b><b>'+money(o.total)+'</b></div><p>'+esc(o.customer_name)+' · '+esc(o.phone)+'</p><p>'+esc(o.address)+'</p><div class="order-items">'+(o.items||[]).map(i=>esc(i.name)+' × '+i.qty).join("، ")+'</div>'+(o.notes?'<p>ملاحظات: '+esc(o.notes)+'</p>':'')+'<div class="status-controls"><label>حالة الطلب <select data-status="'+o.id+'"><option value="new" '+(o.status==="new"?"selected":"")+' >طلب جديد</option><option value="preparing" '+(o.status==="preparing"?"selected":"")+' >قيد التحضير</option><option value="completed" '+(o.status==="completed"?"selected":"")+' >جاهز</option><option value="out_for_delivery" '+(o.status==="out_for_delivery"?"selected":"")+' >خرج للتوصيل</option><option value="delivered" '+(o.status==="delivered"?"selected":"")+' >تم التسليم</option></select></label><small>'+new Date(o.created_at).toLocaleString("ar-EG")+'</small></div></article>').join(""):'<div class="empty-state">لسه مفيش طلبات.</div>';
-     box.querySelectorAll("[data-status]").forEach(s=>s.addEventListener("change",async()=>{const {error}=await db.from("orders").update({status:s.value}).eq("id",s.dataset.status);if(error)alert("تعذر تحديث حالة الطلب.");}));
+     box.querySelectorAll("[data-status]").forEach(s=>s.addEventListener("change",async()=>{s.disabled=true;const {error}=await db.from("orders").update({status:s.value}).eq("id",s.dataset.status);if(error){alert("تعذر تحديث حالة الطلب.");s.disabled=false;return;}if(s.value==="delivered"){await loadOrders();}else{s.disabled=false;}}));
    }
    async function loadAdminProducts() {
      const box=$("#admin-products");box.textContent="جاري تحميل المنتجات...";
