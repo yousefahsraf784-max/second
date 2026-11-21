@@ -57,16 +57,16 @@
      products=data||[]; renderCategories(); renderProducts(); applyLanguage();
    }
    $("#order-form").addEventListener("submit", async e=>{
-     e.preventDefault(); const feedback=$("#order-feedback");
+     e.preventDefault(); const form=e.currentTarget; const feedback=$("#order-feedback");
      if(!cart.length){feedback.textContent="ضيف منتجات للسلة الأول.";return;}
-     const f=new FormData(e.currentTarget), total=cart.reduce((s,x)=>{const p=products.find(v=>v.id===x.id);return s+(p?productPrice(p):0)*x.qty;},0);
+     const f=new FormData(form), total=cart.reduce((s,x)=>{const p=products.find(v=>v.id===x.id);return s+(p?productPrice(p):0)*x.qty;},0);
      const order={customer_name:f.get("customer_name").trim(),phone:f.get("phone").trim(),address:f.get("address").trim(),notes:f.get("notes").trim(),items:cart.map(({id,qty})=>{const p=products.find(v=>v.id===id);return {id,name:p?productName(p):"",price:p?productPrice(p):0,qty};}),total,status:"new"};
      feedback.textContent="جاري إرسال الطلب...";
      const {data,error}=await db.from("orders").insert(order).select("tracking_code").single();
      if(error){feedback.textContent="ما قدرناش نبعت الطلب. حاول تاني بعد التأكد من الاتصال.";return;}
      feedback.innerHTML='<div class="order-confirmation"><p>تم استلام طلبك بنجاح! كود متابعة الطلب:</p><div class="tracking-code-row"><strong>'+esc(data.tracking_code)+'</strong><button type="button" class="copy-code-btn" data-copy-code="'+esc(data.tracking_code)+'">نسخ الكود</button></div><small>احتفظ بالكود لمتابعة حالة طلبك.</small></div>';
      applyLanguage(); feedback.querySelector("[data-copy-code]").addEventListener("click",async b=>{try{await navigator.clipboard.writeText(data.tracking_code);b.currentTarget.textContent="تم نسخ الكود";}catch(_){b.currentTarget.textContent=data.tracking_code;}});
-     cart=[];renderCart();e.currentTarget.reset();
+     cart=[];renderCart();form.reset();
    });
    const getStatusLabels=()=>currentLang==="en"?{new:"Order received",preparing:"Preparing",completed:"Ready",out_for_delivery:"Out for delivery",delivered:"Delivered"}:{new:"تم استلام الطلب",preparing:"قيد التحضير",completed:"جاهز",out_for_delivery:"خرج للتوصيل",delivered:"تم التسليم"};
    $("#track-form").addEventListener("submit",async e=>{
@@ -112,7 +112,7 @@
    }));
    $("#refresh-orders").addEventListener("click",loadOrders);
    $("#product-form").addEventListener("submit",async e=>{
-     e.preventDefault();const f=new FormData(e.currentTarget);const file=f.get("image_file");
+     e.preventDefault();const form=e.currentTarget;const f=new FormData(form);const file=f.get("image_file");
      const nameAr=f.get("name_ar").trim(), nameEn=f.get("name_en").trim();
      const price=Number(f.get("price"));
      if(!nameAr||!nameEn||!Number.isFinite(price)||price<=0){const feedback=$("#product-feedback");feedback.textContent=currentLang==="en"?"Enter both product names and one valid price.":"اكتب اسم المنتج باللغتين وسعرًا صحيحًا أكبر من صفر.";return;}
@@ -134,7 +134,7 @@
        saveStage="database";
        const {data:createdProduct,error}=await db.from("products").insert(payload).select("id").single();if(error)throw error;if(!createdProduct?.id)throw new Error("لم يتم تأكيد حفظ المنتج في قاعدة البيانات.");
        feedback.textContent=currentLang==="en"?"Product added and will appear in the store.":"اتضاف المنتج بنجاح وهيظهر في المتجر.";
-       e.currentTarget.reset();loadAdminProducts();
+       form.reset();loadAdminProducts();
      }catch(err){
        const detail=err.message||err.details||err.hint||"خطأ غير معروف";
        if(err.message==="اختار ملف صورة صحيح."||err.message==="حجم الصورة لازم يكون أقل من 5 ميجا.")feedback.textContent=err.message;
