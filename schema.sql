@@ -30,6 +30,32 @@ alter table public.products alter column price_ar set not null;
 alter table public.products alter column price_en set not null;
 alter table public.products alter column category_ar set not null;
 alter table public.products alter column category_en set not null;
+
+-- Keep older cached frontends compatible with required bilingual product fields.
+create or replace function public.fill_product_compat_fields()
+returns trigger
+language plpgsql
+set search_path = ''
+as $
+begin
+  new.name := coalesce(new.name, new.name_ar, new.name_en, 'منتج');
+  new.name_ar := coalesce(new.name_ar, new.name, new.name_en, 'منتج');
+  new.name_en := coalesce(new.name_en, new.name, new.name_ar, 'Product');
+  new.price := coalesce(new.price, new.price_ar, new.price_en);
+  new.price_ar := coalesce(new.price_ar, new.price, new.price_en);
+  new.price_en := coalesce(new.price_en, new.price, new.price_ar);
+  new.category := coalesce(new.category, new.category_ar, new.category_en, 'عام');
+  new.category_ar := coalesce(new.category_ar, new.category, new.category_en, 'عام');
+  new.category_en := coalesce(new.category_en, new.category, new.category_ar, 'General');
+  return new;
+end;
+$;
+
+drop trigger if exists products_fill_compat_fields on public.products;
+create trigger products_fill_compat_fields
+before insert on public.products
+for each row execute function public.fill_product_compat_fields();
+
 create table if not exists public.orders (
  id uuid primary key default gen_random_uuid(),
  customer_name text not null,
