@@ -20,12 +20,12 @@ create table if not exists public.orders (
  items jsonb not null,
  total numeric(10,2) not null,
  status text not null default 'new' check (status in ('new','preparing','completed','out_for_delivery','delivered')),
- tracking_code text not null default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)),
+ tracking_code text not null default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 16)),
  created_at timestamptz not null default now()
 );
 alter table public.orders add column if not exists tracking_code text;
-alter table public.orders alter column tracking_code set default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10));
-update public.orders set tracking_code = upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)) where tracking_code is null;
+alter table public.orders alter column tracking_code set default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 16));
+update public.orders set tracking_code = upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 16)) where tracking_code is null;
 alter table public.orders alter column tracking_code set not null;
 create unique index if not exists orders_tracking_code_key on public.orders (tracking_code);
 alter table public.orders drop constraint if exists orders_status_check;
@@ -39,7 +39,7 @@ set search_path = ''
 as $
   select o.tracking_code, o.status, o.created_at
   from public.orders as o
-  where length(regexp_replace(upper(coalesce(p_code, '')), '[^A-Z0-9]', '', 'g')) = 10
+  where length(regexp_replace(upper(coalesce(p_code, '')), '[^A-Z0-9]', '', 'g')) = 16
     and o.tracking_code = regexp_replace(upper(coalesce(p_code, '')), '[^A-Z0-9]', '', 'g')
   limit 1;
 $;
