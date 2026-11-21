@@ -1,0 +1,101 @@
+(() => {
+ const cfg = window.CAFE_CONFIG || {};
+ const ready = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase);
+ const page = document.body.dataset.page;
+ const $ = (s) => document.querySelector(s);
+ const money = (n) => Number(n || 0).toLocaleString("ar-EG") + " ج.م";
+ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+ document.querySelectorAll(".cafe-name").forEach(el => el.textContent = cfg.CAFE_NAME || "كافيه");
+ if (!ready) {
+   const msg = "الموقع جاهز من ناحية التصميم، وباقي إعداد قاعدة البيانات: راجع خطوات README وشغّل schema.sql ثم أضف بيانات Supabase في config.js.";
+   if (page === "store") $("#products").innerHTML = '<div class="empty-state">' + msg + '</div>';
+   if (page === "admin") { $("#login-feedback").textContent = msg; $("#login-form").querySelector("button").disabled = true; }
+   return;
+ }
+ const db = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+ if (page === "store") initStore();
+ if (page === "admin") initAdmin();
+
+ function initStore() {
+   let products = [], cart = [], activeCategory = "الكل";
+   const productBox = $("#products");
+   function renderCategories() {
+     const cats = ["الكل", ...new Set(products.map(p => p.category).filter(Boolean))];
+     $("#categories").innerHTML = cats.map(c => '<button class="category-chip '+(activeCategory===c?'active':'')+'" data-cat="'+esc(c)+'">'+esc(c)+'</button>').join("");
+     $("#categories").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { activeCategory=b.dataset.cat; renderCategories(); renderProducts(); }));
+   }
+   function renderProducts() {
+     const visible = products.filter(p => p.is_available && (activeCategory==="الكل" || p.category===activeCategory));
+     productBox.innerHTML = visible.length ? visible.map(p => '<article class="product-card"><div class="product-image">'+(p.image_url?'<img src="'+esc(p.image_url)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="this.style.display=\'none\'">':'<span class="product-placeholder">☕</span>')+'</div><div class="product-info"><h3>'+esc(p.name)+'</h3><p>'+esc(p.description || p.category || "")+'</p><div class="product-bottom"><span class="price">'+money(p.price)+'</span><button class="add-btn" data-add="'+p.id+'" aria-label="أضف للسلة">+</button></div></div></article>').join("") : '<div class="empty-state">المنيو بيتجهز حالياً، تابعنا قريباً ☕</div>';
+     productBox.querySelectorAll("[data-add]").forEach(b => b.addEventListener("click", () => addToCart(b.dataset.add)));
+   }
+   function addToCart(id) { const p=products.find(x=>x.id===id); if(!p)return; const item=cart.find(x=>x.id===id); item?item.qty++:cart.push({id:p.id,name:p.name,price:Number(p.price),qty:1}); renderCart(); }
+   function renderCart() {
+     const count=cart.reduce((s,x)=>s+x.qty,0), total=cart.reduce((s,x)=>s+x.price*x.qty,0);
+     $("#cart-count").textContent=count; $("#cart-total").textContent=money(total);
+     $("#cart-items").innerHTML=cart.length?cart.map(x=>'<div class="cart-row"><div><b>'+esc(x.name)+'</b><br><small>'+money(x.price)+' للواحد</small></div><div class="qty-controls"><button data-minus="'+x.id+'">−</button><b>'+x.qty+'</b><button data-plus="'+x.id+'">+</button></div><b>'+money(x.price*x.qty)+'</b></div>').join(""):'<p class="muted">السلة لسه فاضية. اختار حاجة من المنيو ☕</p>';
+     $("#cart-items").querySelectorAll("[data-minus]").forEach(b=>b.addEventListener("click",()=>changeQty(b.dataset.minus,-1)));
+     $("#cart-items").querySelectorAll("[data-plus]").forEach(b=>b.addEventListener("click",()=>changeQty(b.dataset.plus,1)));
+   }
+   function changeQty(id,d) { const x=cart.find(i=>i.id===id); if(!x)return; x.qty+=d; if(x.qty<=0)cart=cart.filter(i=>i.id!==id); renderCart(); }
+   async function loadProducts() {
+     const {data,error}=await db.from("products").select("*").eq("is_available",true).order("created_at",{ascending:false});
+     if(error){productBox.innerHTML='<div class="empty-state">تعذر تحميل المنيو. تأكد من إعداد قاعدة البيانات.</div>';return;}
+     products=data||[]; renderCategories(); renderProducts();
+   }
+   $("#order-form").addEventListener("submit", async e=>{
+     e.preventDefault(); const feedback=$("#order-feedback");
+     if(!cart.length){feedback.textContent="ضيف منتجات للسلة الأول.";return;}
+     const f=new FormData(e.currentTarget), total=cart.reduce((s,x)=>s+x.price*x.qty,0);
+     const order={customer_name:f.get("customer_name").trim(),phone:f.get("phone").trim(),address:f.get("address").trim(),notes:f.get("notes").trim(),items:cart.map(({id,name,price,qty})=>({id,name,price,qty})),total,status:"new"};
+     feedback.textContent="جاري إرسال الطلب...";
+     const {data,error}=await db.from("orders").insert(order).select("id").single();
+     if(error){feedback.textContent="ما قدرناش نبعت الطلب. حاول تاني بعد التأكد من الاتصال.";return;}
+     feedback.textContent="تم استلام طلبك بنجاح! رقم الطلب: "+data.id.slice(0,8).toUpperCase();
+     cart=[];renderCart();e.currentTarget.reset();
+   });
+   loadProducts();
+   db.channel("store-products").on("postgres_changes",{event:"*",schema:"public",table:"products"},loadProducts).subscribe();
+ }
+ function initAdmin() {
+   const loginPanel=$("#login-panel"), dashboard=$("#dashboard");
+   async function showSession(session) {
+     if(!session){loginPanel.hidden=false;dashboard.hidden=true;return;}
+     loginPanel.hidden=true;dashboard.hidden=false; await loadOrders(); await loadAdminProducts();
+   }
+   db.auth.getSession().then(({data})=>showSession(data.session));
+   db.auth.onAuthStateChange((_event,session)=>showSession(session));
+   $("#login-form").addEventListener("submit",async e=>{
+     e.preventDefault();const f=new FormData(e.currentTarget);$("#login-feedback").textContent="جاري تسجيل الدخول...";
+     const {error}=await db.auth.signInWithPassword({email:f.get("email"),password:f.get("password")});
+     $("#login-feedback").textContent=error?"بيانات الدخول غير صحيحة أو الحساب غير مفعّل.":"";
+   });
+   $("#logout-btn").addEventListener("click",()=>db.auth.signOut());
+   document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+     document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));
+     document.querySelectorAll(".admin-view").forEach(x=>x.hidden=x.id!==b.dataset.tab);
+   }));
+   $("#refresh-orders").addEventListener("click",loadOrders);
+   $("#product-form").addEventListener("submit",async e=>{
+     e.preventDefault();const f=new FormData(e.currentTarget);const payload={name:f.get("name").trim(),price:Number(f.get("price")),category:f.get("category").trim(),image_url:f.get("image_url").trim()||null,description:f.get("description").trim()||null};
+     const feedback=$("#product-feedback");feedback.textContent="جاري إضافة المنتج...";
+     const {error}=await db.from("products").insert(payload);
+     feedback.textContent=error?"تعذرت الإضافة. راجع الاتصال والحقول.":"اتضاف المنتج بنجاح وهيظهر في المتجر.";if(!error){e.currentTarget.reset();loadAdminProducts();}
+   });
+   async function loadOrders() {
+     const box=$("#orders-list");box.textContent="جاري تحميل الطلبات...";
+     const {data,error}=await db.from("orders").select("*").order("created_at",{ascending:false});
+     if(error){box.textContent="تعذر تحميل الطلبات. تأكد من صلاحيات الإدارة.";return;}
+     box.innerHTML=data.length?data.map(o=>'<article class="order-card"><div class="order-top"><b>طلب #'+esc(o.id.slice(0,8).toUpperCase())+'</b><b>'+money(o.total)+'</b></div><p>'+esc(o.customer_name)+' · '+esc(o.phone)+'</p><p>'+esc(o.address)+'</p><div class="order-items">'+(o.items||[]).map(i=>esc(i.name)+' × '+i.qty).join("، ")+'</div>'+(o.notes?'<p>ملاحظات: '+esc(o.notes)+'</p>':'')+'<div class="status-controls"><label>حالة الطلب <select data-status="'+o.id+'"><option value="new" '+(o.status==="new"?"selected":"")+'>طلب جديد</option><option value="preparing" '+(o.status==="preparing"?"selected":"")+'>قيد التحضير</option><option value="completed" '+(o.status==="completed"?"selected":"")+'>جاهز</option><option value="delivered" '+(o.status==="delivered"?"selected":"")+'>تم التسليم</option></select></label><small>'+new Date(o.created_at).toLocaleString("ar-EG")+'</small></div></article>').join(""):'<div class="empty-state">لسه مفيش طلبات.</div>';
+     box.querySelectorAll("[data-status]").forEach(s=>s.addEventListener("change",async()=>{const {error}=await db.from("orders").update({status:s.value}).eq("id",s.dataset.status);if(error)alert("تعذر تحديث حالة الطلب.");}));
+   }
+   async function loadAdminProducts() {
+     const box=$("#admin-products");box.textContent="جاري تحميل المنتجات...";
+     const {data,error}=await db.from("products").select("*").order("created_at",{ascending:false});
+     if(error){box.textContent="تعذر تحميل المنتجات.";return;}
+     box.innerHTML=data.length?data.map(p=>'<div class="admin-product-row"><div><b>'+esc(p.name)+'</b><br><small>'+money(p.price)+' · '+esc(p.category)+' · '+(p.is_available?"متاح":"مخفي")+'</small></div><button class="delete-btn" data-delete="'+p.id+'">حذف</button></div>').join(""):'<p class="muted">مفيش منتجات مضافة لسه.</p>';
+     box.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",async()=>{if(!confirm("متأكد إنك عايز تحذف المنتج؟"))return;const {error}=await db.from("products").delete().eq("id",b.dataset.delete);if(error)alert("تعذر حذف المنتج.");else loadAdminProducts();}));
+   }
+   db.channel("admin-live").on("postgres_changes",{event:"*",schema:"public",table:"orders"},loadOrders).on("postgres_changes",{event:"*",schema:"public",table:"products"},loadAdminProducts).subscribe();
+ }
+})();
